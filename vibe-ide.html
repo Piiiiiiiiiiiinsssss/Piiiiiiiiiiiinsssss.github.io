@@ -382,7 +382,7 @@ function currentPlugin(){ return plugins.find(p=>p.id===currentId); }
 // ====== Telegram Mini App integration ======
 // Set this to your deployed backend URL (see server.js). Leave empty to disable bot-send and
 // always fall back to share/download/copy (useful while testing outside Telegram).
-const BACKEND_URL = ""; // e.g. "https://your-app.onrender.com/api/send-plugin"
+const BACKEND_URL = "https://plug-web.onrender.com/api/send-plugin"; // e.g. "https://your-app.onrender.com/api/send-plugin"
 
 const tg = window.Telegram && window.Telegram.WebApp;
 if(tg){
