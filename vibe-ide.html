@@ -210,6 +210,23 @@ let autoApprove = true;
 const el = id => document.getElementById(id);
 
 async function loadPlugins(){
+  if(tg && BACKEND_URL){
+    try{
+      const url = BACKEND_URL.replace('/send-plugin', '/plugins/load');
+      const res = await fetch(url, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ initData: tg.initData })
+      });
+      const data = await res.json();
+      if(data.ok){
+        plugins = (data.plugins && data.plugins.length) ? data.plugins : defaultPlugins();
+        renderHome();
+        return;
+      }
+    }catch(e){ /* сеть недоступна - откатываемся на локальный дефолт ниже */ }
+  }
+  // Фолбэк: вне Telegram (например, превью внутри Claude) - пробуем window.storage, иначе дефолт
   try{
     const res = await window.storage.get('plugin-list', false);
     plugins = res ? JSON.parse(res.value) : defaultPlugins();
@@ -219,6 +236,17 @@ async function loadPlugins(){
   renderHome();
 }
 async function savePlugins(){
+  if(tg && BACKEND_URL){
+    try{
+      const url = BACKEND_URL.replace('/send-plugin', '/plugins/save');
+      await fetch(url, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ initData: tg.initData, plugins })
+      });
+      return;
+    }catch(e){ /* сеть недоступна - хотя бы попробуем сохранить локально ниже */ }
+  }
   try{ await window.storage.set('plugin-list', JSON.stringify(plugins), false); }catch(e){}
 }
 
