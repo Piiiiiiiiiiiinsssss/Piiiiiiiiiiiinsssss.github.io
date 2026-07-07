@@ -400,10 +400,18 @@ function downloadPlugin(p){
   // 0) Inside Telegram Mini App + backend configured -> send the file straight into the chat
   if(tg && BACKEND_URL){
     tg.MainButton && tg.MainButton.hide();
-    fetch(BACKEND_URL, {
+    const doSend = () => fetch(BACKEND_URL, {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ initData: tg.initData, filename, code: p.code })
+    });
+    doSend().then(async r=>{
+      if(r.status === 402){
+        const activated = await activateLicense();
+        if(!activated) throw new Error('no license');
+        return doSend();
+      }
+      return r;
     }).then(r=>r.json()).then(res=>{
       if(res && res.ok){
         tg.showAlert ? tg.showAlert(`Файл ${filename} отправлен тебе в чат ✅`) : alert(`Файл ${filename} отправлен в чат`);
@@ -475,9 +483,29 @@ function extractCode(text){
   return match ? match[1].trim() : null;
 }
 
+async function activateLicense(){
+  const key = prompt("Введи лицензионный ключ, чтобы пользоваться ИИ и отправкой плагинов:");
+  if(!key) return false;
+  try{
+    const url = BACKEND_URL.replace('/send-plugin', '/activate');
+    const res = await fetch(url, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ initData: tg ? tg.initData : null, key: key.trim() })
+    });
+    const data = await res.json();
+    if(data.ok){ alert("Ключ активирован ✅"); return true; }
+    alert("Не удалось активировать: " + (data.error||'unknown'));
+    return false;
+  }catch(e){
+    alert("Ошибка сети при активации: " + e.message);
+    return false;
+  }
+}
+
 async function callAI(pluginCode, userText){
   const url = BACKEND_URL.replace('/send-plugin', '/ai-chat');
-  const response = await fetch(url, {
+  const doCall = () => fetch(url, {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
@@ -486,6 +514,12 @@ async function callAI(pluginCode, userText){
       message: userText
     })
   });
+  let response = await doCall();
+  if(response.status === 402){
+    const activated = await activateLicense();
+    if(!activated) throw new Error('Нужен активный лицензионный ключ');
+    response = await doCall();
+  }
   const data = await response.json();
   if(!data.ok) throw new Error(data.error || 'AI request failed');
   return data.reply;
